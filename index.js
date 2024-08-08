@@ -54,8 +54,8 @@ const createUrl = async function(url) {
   return newUrl;
 };
 
-// find url entry by short_url
-const findUrlById = urlId => Url.findOne({ short_url: urlId}).then(existing_url => existing_url);
+// find original_url from short_url
+const findUrlById = urlId => Url.findOne({ short_url: urlId}).then(existing_url => existing_url.original_url);
 
 // find url entry by original_url
 const findUrl = url => Url.findOne({original_url: url}).then(existing_url => existing_url);
