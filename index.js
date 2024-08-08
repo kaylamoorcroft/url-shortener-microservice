@@ -5,6 +5,8 @@ const app = express();
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 mongoose.connect(process.env.MONGO_URI);
+const dns = require('dns'); 
+const { doesNotMatch } = require('assert');
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -60,29 +62,58 @@ const findUrlById = urlId => Url.findOne({ short_url: urlId}).then(existing_url 
 // find url entry by original_url
 const findUrl = url => Url.findOne({original_url: url}).then(existing_url => existing_url);
 
+// get host name from full url
+const getHostName = url => {
+  // replace https:// and ignore any params after ?
+  let hostname = url.replace("https://","").split("?",1)[0];
+  // remove / at end if there is one
+  if (hostname.substr(-1) === "/") { hostname = hostname.substr(0, hostname.length-1); }
+  return hostname;
+};
+
 // URL shortener microservice
 app.post('/api/shorturl', (req, res) => {
-  findUrl(req.body.url).then(existing_url => {
-    console.log(existing_url);
-    console.log("------");
-    // if url exists
-    if (existing_url) {
-      // get id
-      const { original_url: url, short_url: id } = existing_url;
-      console.log("url exists:");
-      console.log("short_url: " + id);
-      // send json object
-      res.json({ original_url: url, short_url: id});
+  console.log("request url: " + req.body.url);
+  const hostname = getHostName(req.body.url);
+  // check if valid url 
+  dns.lookup(hostname, (err, address, family) => {
+    if (err) {
+      // resturn special json response
+      res.json({ error: 'invalid url' });
+      console.log(`"${hostname}" is invalid hostname`);
     }
     else {
-      console.log("url doesn't exist");
-      // create new url and get id
-      createUrl(req.body.url).then(({ original_url: url, short_url: id }) => {
-        console.log(`new short_url for ${url}: ${id}`);
-        // send json object
-        res.json({ original_url: url, short_url: id });
+      // check if url exists
+      findUrl(req.body.url).then(existing_url => {
+        console.log(existing_url);
+        console.log("------");
+        // if url exists, get id
+        if (existing_url) {
+          const { original_url: url, short_url: id } = existing_url;
+          console.log("url exists:");
+          console.log("short_url: " + id);
+          // send json object
+          res.json({ original_url: url, short_url: id});
+        }
+        // otherwise create new url and get id
+        else {
+          console.log("url doesn't exist");
+          createUrl(req.body.url).then(({ original_url: url, short_url: id }) => {
+            console.log(`new short_url for ${url}: ${id}`);
+            // send json object
+            res.json({ original_url: url, short_url: id });
+          });
+        }
       });
     }
+  });
+});
+// redirect to original url from short url
+app.get('/api/shorturl/:id', (req, res) => {
+  console.log("short url requested: " + req.params.id);
+  findUrlById(req.params.id).then(original_url => { 
+    console.log("original_url: " + original_url)
+    res.redirect(original_url);
   });
 });
 
