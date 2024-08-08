@@ -50,7 +50,6 @@ const findNextId = async () => {
 // create and save url entry in database
 const createUrl = async function(url) {
   const urlId = await findNextId();
-  console.log("new id is: " + urlId);
   const newUrl = new Url({ original_url: url, short_url: urlId });
   await newUrl.save();
   return newUrl;
@@ -73,34 +72,22 @@ const getHostName = url => {
 
 // URL shortener microservice
 app.post('/api/shorturl', (req, res) => {
-  console.log("request url: " + req.body.url);
   const hostname = getHostName(req.body.url);
   // check if valid url 
   dns.lookup(hostname, (err, address, family) => {
-    if (err) {
-      // resturn special json response
-      res.json({ error: 'invalid url' });
-      console.log(`"${hostname}" is invalid hostname`);
-    }
+    // if invalid url, return special json response
+    if (err) res.json({ error: 'invalid url' });
     else {
       // check if url exists
       findUrl(req.body.url).then(existing_url => {
-        console.log(existing_url);
-        console.log("------");
-        // if url exists, get id
+        // if url exists, get id and send json object
         if (existing_url) {
           const { original_url: url, short_url: id } = existing_url;
-          console.log("url exists:");
-          console.log("short_url: " + id);
-          // send json object
           res.json({ original_url: url, short_url: id});
         }
-        // otherwise create new url and get id
+        // otherwise create new url, get id then send json object
         else {
-          console.log("url doesn't exist");
           createUrl(req.body.url).then(({ original_url: url, short_url: id }) => {
-            console.log(`new short_url for ${url}: ${id}`);
-            // send json object
             res.json({ original_url: url, short_url: id });
           });
         }
@@ -110,9 +97,7 @@ app.post('/api/shorturl', (req, res) => {
 });
 // redirect to original url from short url
 app.get('/api/shorturl/:id', (req, res) => {
-  console.log("short url requested: " + req.params.id);
   findUrlById(req.params.id).then(original_url => { 
-    console.log("original_url: " + original_url)
     res.redirect(original_url);
   });
 });
