@@ -61,38 +61,30 @@ const findUrlById = urlId => Url.findOne({ short_url: urlId}).then(existing_url 
 const findUrl = url => Url.findOne({original_url: url}).then(existing_url => existing_url);
 
 // URL shortener microservice
-app.route('/api/shorturl')
-  .post((req, res) => {
-    findUrl(req.body.url).then(existing_url => {
-      console.log(existing_url);
-      console.log("------");
-      // if url exists
-      if (existing_url) {
-        // get id
-        const { original_url: url, short_url: id} = existing_url;
-        console.log("url exists:");
-        console.log("short_url: " + id);
+app.post('/api/shorturl', (req, res) => {
+  findUrl(req.body.url).then(existing_url => {
+    console.log(existing_url);
+    console.log("------");
+    // if url exists
+    if (existing_url) {
+      // get id
+      const { original_url: url, short_url: id } = existing_url;
+      console.log("url exists:");
+      console.log("short_url: " + id);
+      // send json object
+      res.json({ original_url: url, short_url: id});
+    }
+    else {
+      console.log("url doesn't exist");
+      // create new url and get id
+      createUrl(req.body.url).then(({ original_url: url, short_url: id }) => {
+        console.log(`new short_url for ${url}: ${id}`);
         // send json object
-        res.json({ original_url: url, short_url: id});
-      }
-      else {
-        console.log("url doesn't exist");
-        // create new url and get id
-        createUrl(req.body.url)
-        .then(({ original_url: url, short_url: id }) => {
-          console.log(`new short_url for ${url}: ${id}`);
-          // send json object
-          res.json({ original_url: url, short_url: id });
-        });
-      }
-    });
+        res.json({ original_url: url, short_url: id });
+      });
+    }
   });
-    /*
-  .get((req, res) => {
-    const url = findUrl(req.query.original_url);
-    console.log("url: \n" + url);
-    res.json({ original_url: url.original_url});
-  });*/
+});
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
