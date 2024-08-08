@@ -4,7 +4,7 @@ const cors = require('cors');
 const app = express();
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(process.env.MONGO_URI);
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -28,49 +28,45 @@ app.get('/api/hello', function(req, res) {
 
 // url schema and model
 const Schema = mongoose.Schema;
-const urlSchema = new Schema({ original_url: String });
+const urlSchema = new Schema({ 
+  original_url: String,
+  short_url: Number 
+});
 const Url = mongoose.model("Url", urlSchema);
 
 // create and save url entry in database
-const createUrl = function(url) {
+const createUrl = async function(url) {
   const new_url = new Url({ original_url: url });
-  new_url.save();
+  await new_url.save();
   return new_url;
 };
 
-// find url entry by id
-const findUrlById = function(urlId, done) {
-  Url.findById(urlId, (err, data) => {
-    if (err) return console.error(err);
-    done(null, data);
-  });
-};
+// find url entry by short_url
+const findUrlById = urlId => Url.findOne({ short_url: urlId}).then(existing_url => existing_url);
 
 // find url entry by original_url
-const findUrl = function(url) {
-  const existing_url = Url.findOne({original_url: url});
-  return existing_url;
-}
+const findUrl = url => Url.findOne({original_url: url}).then(existing_url => existing_url);
 
 // URL shortener microservice
 app.route('/api/shorturl')
   .post((req, res) => {
-    const existing_url = findUrl(req.body.url);
+    findUrl(req.body.url).then(existing_url => {
     console.log(existing_url);
-    let id;
+    console.log("------");
     // if url exists, get id
     if (existing_url) {
-      id = Number(existing_url._id);
-      console.log("short_url: " + id);
+      console.log("url exists");
+      console.log("short_url: " + existing_url.short_url);
     }
     // otherwise, create new url and get id
     else {
-      const new_url = createUrl(req.body.url);
-      console.log(new_url);
-      id = Number(new_url._id);
-      console.log("short_url: " + id);
+      console.log("url doesn't exist");
+      createUrl(req.body.url).then(new_url => {
+        console.log(`new short_url for ${req.body.url}: ${new_url.short_url}`);
+      });
     }
     res.json({ original_url: req.body.url });});
+  });
     /*
   .get((req, res) => {
     const url = findUrl(req.query.original_url);
